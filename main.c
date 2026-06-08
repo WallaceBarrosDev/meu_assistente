@@ -34,6 +34,47 @@ size_t write_callback(char *data, size_t size, size_t nmemb, void *userdata) {
     return realsize;
 }
 
+// --- Task 6: Função de Escape para JSON ---
+// Escapa caracteres especiais para garantir JSON válido
+void escape_for_json(const char *input, char *output, size_t output_size) {
+    size_t j = 0;
+    for (size_t i = 0; input[i] != '\0' && j < output_size - 1; i++) {
+        char c = input[i];
+        
+        // Verifica espaço restante necessário para o caractere escapado (máx 2 chars)
+        if (j + 2 >= output_size) {
+            break; // Previne overflow
+        }
+
+        switch (c) {
+            case '"':
+                output[j++] = '\\';
+                output[j++] = '"';
+                break;
+            case '\\':
+                output[j++] = '\\';
+                output[j++] = '\\';
+                break;
+            case '\n':
+                output[j++] = '\\';
+                output[j++] = 'n';
+                break;
+            case '\r':
+                output[j++] = '\\';
+                output[j++] = 'r';
+                break;
+            case '\t':
+                output[j++] = '\\';
+                output[j++] = 't';
+                break;
+            default:
+                output[j++] = c;
+                break;
+        }
+    }
+    output[j] = '\0';
+}
+
 int main() {
     // Inicializa o buffer de resposta
     response_buffer[0] = '\0';
@@ -97,18 +138,21 @@ int main() {
         "Aqui estão minhas notas:\n\n%s\n\nPergunta: %s", 
         vault_buffer, question);
 
+    // --- Task 6 (Escape): Escapar o prompt antes de montar o JSON ---
+    char escaped_prompt[VAULT_BUFFER_SIZE + 1024];
+    escape_for_json(prompt, escaped_prompt, sizeof(escaped_prompt));
+
     // Buffer para o JSON da requisição
-    // Tamanho estimado: tamanho do prompt + overhead do JSON (~200 chars)
+    // Tamanho estimado: tamanho do prompt escapado + overhead do JSON (~200 chars)
     char json_payload[VAULT_BUFFER_SIZE + 2048];
     
-    // Nota: Esta montagem simples NÃO faz escape de aspas duplas no conteúdo.
-    // Conforme as restrições da v1, o usuário deve evitar aspas duplas nas notas.
+    // Agora usamos o escaped_prompt, garantindo JSON válido mesmo com aspas ou newlines
     snprintf(json_payload, sizeof(json_payload),
         "{\n"
         "  \"model\": \"%s\",\n"
         "  \"messages\": [{\"role\": \"user\", \"content\": \"%s\"}]\n"
         "}\n",
-        MODEL, prompt);
+        MODEL, escaped_prompt);
 
     // --- Task 6: Chamada à API via libcurl ---
     CURL *curl;
