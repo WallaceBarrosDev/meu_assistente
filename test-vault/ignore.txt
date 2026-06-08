@@ -1,0 +1,1 @@
+Este é um arquivo de texto simples que deve ser ignorado.
